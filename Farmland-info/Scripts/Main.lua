@@ -23,7 +23,6 @@ Chunk = 0
 function Apply()
     local Popup = input.popup("Do you want to cover impossible tiles?", "yesno", "question")
     local CoverAll = Popup == "yes"
-    print(CoverAll)
     while true do
         local From = memory.readdword(Addr.FarmlandPTR + Chunk * 8)
         local To = memory.readdword(Addr.FarmlandPTR + 8 + Chunk * 8)
