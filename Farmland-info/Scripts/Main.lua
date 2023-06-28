@@ -21,16 +21,21 @@ Const =
 Modified = 0
 Chunk = 0
 function Apply()
+    local Popup = input.popup("Do you want to cover impossible tiles?", "yesno", "question")
+    local CoverAll = Popup == "yes"
+    print(CoverAll)
     while true do
         local From = memory.readdword(Addr.FarmlandPTR + Chunk * 8)
         local To = memory.readdword(Addr.FarmlandPTR + 8 + Chunk * 8)
         if IsAddress(From) and IsAddress(To) then
             for j = 0, (To - From) / 4 do
                 local Address = From + j * 4
-                if Address == From then memory.writedword(Address, Const.Crop[1] + Const.QualityOffset * Chunk)
-                elseif Address == To - 4 then memory.writedword(Address, Const.Crop[2] + Const.QualityOffset * Chunk)
-                else memory.writedword(Address, Const.Crop[3] + Const.QualityOffset * Chunk) end
-                Modified = Modified + 1
+                if memory.readdword(Address) ~= 0xFFFFFFFF or CoverAll then 
+                    if Address == From then memory.writedword(Address, Const.Crop[1] + Const.QualityOffset * Chunk)
+                    elseif Address == To - 4 then memory.writedword(Address, Const.Crop[2] + Const.QualityOffset * Chunk)
+                    else memory.writedword(Address, Const.Crop[3] + Const.QualityOffset * Chunk) end
+                    Modified = Modified + 1
+                end
             end
         else break end
         Chunk = Chunk + 1
