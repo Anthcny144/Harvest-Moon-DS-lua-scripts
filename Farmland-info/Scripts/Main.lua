@@ -1,6 +1,3 @@
-Game = 0
-Titles = {"USA 1.0", "USA 1.1", "EUR 1.0", "EUR 1.1", "JPN 1.0", "JPN 1.2", "CuteUSA", "CuteJPN"}
-
 if GetGameInfo() then
 
 Addr = 
@@ -30,84 +27,95 @@ Const =
     QualityOffset = 0x2000
 }
 
-Season = math.floor(memory.readdword(Addr.Time) / 1080000 % 4) + 1
-Cancel = false
-if Season == 4 then
-    local Popup = input.popup("The script does not work during Winter.\nThe season will shift to Spring.\nContinue?", "yescancel", "question")
-    if Popup == "yes" then
-        local Time = memory.readdword(Addr.Time)
-        Time = Time + 1080000
-        memory.writedword(Addr.Time, Time)
-        Season = (Season + 1) % 4
-    else Cancel = true end
+function IsInitialized()
+    local Addr = {0x23DE2A8, 0x23DE2A8, 0x23DE248, 0x23DE2A8, 0x23A1500, 0x23A1500, 0x23C13E0, 0x23A14E0}
+    local Check, Similar = {0x61E1103, 0x5070516, 0x1E}, 0
+    for i = 0, 2 do
+        if memory.readdword(Addr[Game] + i * 4) == Check[i + 1] then Similar = Similar + 1 end
+    end
+    return Similar ~= 3
 end
 
-Modified = 0
-Impossible = 0
-Chunk = 0
-CoverAll = false
-function Apply()
-    local Popup = input.popup("Do you want to cover impossible tiles?", "yesno", "question")
-    CoverAll = Popup == "yes"
-    while true do
-        local From = memory.readdword(Addr.FarmlandPTR + Chunk * 8)
-        local To = memory.readdword(Addr.FarmlandPTR + 8 + Chunk * 8)
-        if IsAddress(From) and IsAddress(To) then
-            for j = 0, (To - From) / 4 do
-                local Address = From + j * 4
-                local IsImpossible = memory.readhalfbyte(Address + 3, true) == 0xF
-                if not IsImpossible or CoverAll then
-                    if Address == From then memory.writedword(Address, Const.Crop[Season][1] + Const.QualityOffset * Chunk)
-                    elseif Address == To - 4 then memory.writedword(Address, Const.Crop[Season][2] + Const.QualityOffset * Chunk)
-                    else memory.writedword(Address, Const.Crop[Season][3] + Const.QualityOffset * Chunk) end
-                    if IsImpossible then
-                        memory.writehalfbyte(Address + 3, 0xF, true)
+if IsInitialized() then
+    Season = math.floor(memory.readdword(Addr.Time) / 1080000 % 4) + 1
+    Cancel = false
+    if Season == 4 then
+        local Popup = input.popup("The script does not work during Winter.\nThe season will shift to Spring.\nContinue?", "yescancel", "question")
+        if Popup == "yes" then
+            local Time = memory.readdword(Addr.Time)
+            Time = Time + 1080000
+            memory.writedword(Addr.Time, Time)
+            Season = (Season + 1) % 4
+        else Cancel = true end
+    end
+
+    Modified = 0
+    Impossible = 0
+    Chunk = 0
+    CoverAll = false
+    function Apply()
+        local Popup = input.popup("Do you want to cover impossible tiles?", "yesno", "question")
+        CoverAll = Popup == "yes"
+        while true do
+            local From = memory.readdword(Addr.FarmlandPTR + Chunk * 8)
+            local To = memory.readdword(Addr.FarmlandPTR + 8 + Chunk * 8)
+            if IsAddress(From) and IsAddress(To) then
+                for j = 0, (To - From) / 4 do
+                    local Address = From + j * 4
+                    local IsImpossible = memory.readhalfbyte(Address + 3, true) == 0xF
+                    if not IsImpossible or CoverAll then
+                        if Address == From then memory.writedword(Address, Const.Crop[Season][1] + Const.QualityOffset * Chunk)
+                        elseif Address == To - 4 then memory.writedword(Address, Const.Crop[Season][2] + Const.QualityOffset * Chunk)
+                        else memory.writedword(Address, Const.Crop[Season][3] + Const.QualityOffset * Chunk) end
+                        if IsImpossible then
+                            memory.writehalfbyte(Address + 3, 0xF, true)
+                            Impossible = Impossible + 1
+                        end
+                        Modified = Modified + 1
+                    elseif memory.readhalfbyte(Address + 3, true) == 0xF then
+                        memory.writedword(Address, 0xFFFFFFFF)
                         Impossible = Impossible + 1
                     end
-                    Modified = Modified + 1
-                elseif memory.readhalfbyte(Address + 3, true) == 0xF then
-                    memory.writedword(Address, 0xFFFFFFFF)
-                    Impossible = Impossible + 1
                 end
-            end
-        else break end
-        Chunk = Chunk + 1
-    end
-end
-
-Lock = false
-function Read()
-    local HeldItem = memory.readword(Addr.HeldItem)
-    local Quality = memory.readbyte(Addr.HeldItem + 2)
-    for i = 1, 3 do
-        if HeldItem == Const.Item[Season][i] and not Lock then
-            Lock = true
-            local From = memory.readdword(Addr.FarmlandPTR + Quality * 8)
-            local To = memory.readdword(Addr.FarmlandPTR + 8 + Quality * 8)
-            local SizeX = memory.readbyte(Addr.FarmlandPTR - 2 + Quality * 8) - memory.readbyte(Addr.FarmlandPTR - 4 + Quality * 8)
-            local SizeY = memory.readbyte(Addr.FarmlandPTR - 1 + Quality * 8) - memory.readbyte(Addr.FarmlandPTR - 3 + Quality * 8)
-            print("Chunk ID: " .. Quality)
-            print("Chunk address: " .. Hex(From, 8))
-            print("Chunk size: " .. SizeX .. "x" .. SizeY .. " (" .. (To - From) / 4 .. " tiles)")
-            print()
+            else break end
+            Chunk = Chunk + 1
         end
     end
 
-    if HeldItem == 0xFFFF then Lock = false end
-end
+    Lock = false
+    function Read()
+        local HeldItem = memory.readword(Addr.HeldItem)
+        local Quality = memory.readbyte(Addr.HeldItem + 2)
+        for i = 1, 3 do
+            if HeldItem == Const.Item[Season][i] and not Lock then
+                Lock = true
+                local From = memory.readdword(Addr.FarmlandPTR + Quality * 8)
+                local To = memory.readdword(Addr.FarmlandPTR + 8 + Quality * 8)
+                local SizeX = memory.readbyte(Addr.FarmlandPTR - 2 + Quality * 8) - memory.readbyte(Addr.FarmlandPTR - 4 + Quality * 8)
+                local SizeY = memory.readbyte(Addr.FarmlandPTR - 1 + Quality * 8) - memory.readbyte(Addr.FarmlandPTR - 3 + Quality * 8)
+                print("Chunk ID: " .. Quality)
+                print("Chunk address: " .. Hex(From, 8))
+                print("Chunk size: " .. SizeX .. "x" .. SizeY .. " (" .. (To - From) / 4 .. " tiles)")
+                print()
+            end
+        end
 
-if not Cancel then
-    Apply()
-    print("Game: " .. Titles[Game])
-    if CoverAll then
-        print("Total tiles: " .. Modified .. " (" .. Impossible .. " impossible tiles)")
-    else 
-        print("Total tiles: " .. Modified .. " (" .. Impossible .. " impossible tiles revived)")
+        if HeldItem == 0xFFFF then Lock = false end
     end
-    print("Total chunks: " .. Chunk)
-    print()
 
-    emu.registerafter(Read)
-end
+    if not Cancel then
+        Apply()
+        print("Game: " .. Title)
+        if CoverAll then
+            print("Total tiles: " .. Modified .. " (" .. Impossible .. " impossible tiles)")
+        else 
+            print("Total tiles: " .. Modified .. " (" .. Impossible .. " impossible tiles revived)")
+        end
+        print("Total chunks: " .. Chunk)
+        print()
+
+        emu.registerafter(Read)
+    end
+else print("Game is not initialized!") end
 
 else print("Wrong game!") end

@@ -1,4 +1,7 @@
+Game = nil
+Title = nil
 function GetGameInfo()
+    local Titles = {"USA 1.0", "USA 1.1", "EUR 1.0", "EUR 1.1", "JPN 1.0", "JPN 1.2", "CuteUSA", "CuteJPN"}
     local GC = memory.readdword(0x23FFE0C)
     local REV = memory.readbyte(0x23FFE1E)
     if GC == 0x45434241 and REV == 0 then Game = 1 -- USA 1.0
@@ -10,5 +13,6 @@ function GetGameInfo()
     elseif GC == 0x45344241 and REV == 0 then Game = 7 -- CuteUSA
     elseif GC == 0x4A344241 and REV == 0 then Game = 8 -- CuteJPN
     end
+    Title = Titles[Game]
     return Game ~= 0
 end
